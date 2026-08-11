@@ -1,16 +1,17 @@
 from fastapi import FastAPI
-from routers import categorias, productos
+from routers import auth, categorias, productos
 
 app = FastAPI(
-    title="API Tienda",
-    description="API REST modularizada para una tienda.",
-    version="0.2.0",
+    title="API Tienda Segura",
+    description="API REST modularizada con autenticacion JWT y control de roles.",
+    version="0.3.0",
 )
 
+app.include_router(auth.router)
 app.include_router(productos.router)
 app.include_router(categorias.router)
 
 
 @app.get("/", tags=["Inicio"])
 def inicio():
-    return {"mensaje": "API Tienda funcionando correctamente"}
+    return {"mensaje": "API Tienda Segura funcionando correctamente"}

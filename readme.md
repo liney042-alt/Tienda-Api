@@ -16,6 +16,13 @@ Proyecto de aprendizaje para construir una API REST de una tienda con FastAPI.
 - CRUD completo para categorias.
 - Modelos de entrada con Pydantic.
 
+## Guia 3
+
+- Login con OAuth2 y JWT.
+- Hashing de contrasenas con bcrypt.
+- Endpoints protegidos con `Depends`.
+- Autorizacion por rol administrador.
+
 ## Ejecutar
 
 ```bash

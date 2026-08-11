@@ -1,5 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+
+import seguridad
 
 router = APIRouter(prefix="/productos", tags=["Productos"])
 
@@ -31,25 +33,46 @@ def obtener_producto(producto_id: int):
 
 
 @router.post("", status_code=201)
-def crear_producto(datos: ProductoEntrada):
+def crear_producto(
+    datos: ProductoEntrada,
+    usuario: dict = Depends(seguridad.obtener_usuario_actual),
+):
     nuevo_producto = {"id": len(productos) + 1, **datos.model_dump()}
     productos.append(nuevo_producto)
-    return nuevo_producto
+    return {
+        "mensaje": "Producto creado",
+        "producto": nuevo_producto,
+        "creado_por": usuario["username"],
+    }
 
 
 @router.put("/{producto_id}")
-def actualizar_producto(producto_id: int, datos: ProductoEntrada):
+def actualizar_producto(
+    producto_id: int,
+    datos: ProductoEntrada,
+    usuario: dict = Depends(seguridad.obtener_usuario_actual),
+):
     for producto in productos:
         if producto["id"] == producto_id:
             producto.update(datos.model_dump())
-            return producto
+            return {
+                "mensaje": f"Producto {producto_id} actualizado",
+                "producto": producto,
+                "actualizado_por": usuario["username"],
+            }
     raise HTTPException(status_code=404, detail="Producto no encontrado")
 
 
 @router.delete("/{producto_id}")
-def eliminar_producto(producto_id: int):
+def eliminar_producto(
+    producto_id: int,
+    admin: dict = Depends(seguridad.requerir_admin),
+):
     for indice, producto in enumerate(productos):
         if producto["id"] == producto_id:
             productos.pop(indice)
-            return {"mensaje": f"Producto {producto_id} eliminado"}
+            return {
+                "mensaje": f"Producto {producto_id} eliminado",
+                "eliminado_por": admin["username"],
+            }
     raise HTTPException(status_code=404, detail="Producto no encontrado")
