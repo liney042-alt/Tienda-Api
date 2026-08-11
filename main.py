@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from routers import auth, categorias, productos
+from routers import auth, categorias, productos, usuarios
 
 app = FastAPI(
     title="API Tienda Segura",
@@ -10,6 +10,7 @@ app = FastAPI(
 app.include_router(auth.router)
 app.include_router(productos.router)
 app.include_router(categorias.router)
+app.include_router(usuarios.router)
 
 
 @app.get("/", tags=["Inicio"])

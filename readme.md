@@ -23,6 +23,12 @@ Proyecto de aprendizaje para construir una API REST de una tienda con FastAPI.
 - Endpoints protegidos con `Depends`.
 - Autorizacion por rol administrador.
 
+## Extra: usuarios
+
+- Registro de clientes.
+- Consulta de usuario autenticado.
+- Administracion de usuarios para rol administrador.
+
 ## Ejecutar
 
 ```bash
