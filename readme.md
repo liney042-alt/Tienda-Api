@@ -9,6 +9,13 @@ Proyecto de aprendizaje para construir una API REST de una tienda con FastAPI.
 - Endpoints de consulta para productos.
 - Parametros de ruta y parametros de consulta.
 
+## Guia 2
+
+- Organizacion del proyecto con `APIRouter`.
+- CRUD completo para productos.
+- CRUD completo para categorias.
+- Modelos de entrada con Pydantic.
+
 ## Ejecutar
 
 ```bash
