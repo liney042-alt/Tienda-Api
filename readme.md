@@ -29,6 +29,12 @@ Proyecto de aprendizaje para construir una API REST de una tienda con FastAPI.
 - Consulta de usuario autenticado.
 - Administracion de usuarios para rol administrador.
 
+## Extra: pedidos
+
+- Creacion de pedidos para usuarios autenticados.
+- Consulta de pedidos propios para clientes.
+- Consulta y eliminacion global para administradores.
+
 ## Ejecutar
 
 ```bash
