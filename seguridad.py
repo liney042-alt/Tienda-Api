@@ -5,6 +5,8 @@ import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 
+from database import obtener_conexion
+
 SECRET_KEY = "clave-super-secreta-de-mas-de-32-caracteres-cambieme"
 ALGORITMO = "HS256"
 MINUTOS_EXPIRACION = 30
@@ -19,27 +21,20 @@ def verificar_password(plano: str, hasheado: str) -> bool:
     return bcrypt.checkpw(plano.encode(), hasheado.encode())
 
 
-usuarios = [
-    {
-        "username": "admin",
-        "nombre": "Administrador",
-        "password": hashear_password("admin123"),
-        "rol": "admin",
-    },
-    {
-        "username": "ana",
-        "nombre": "Ana Cliente",
-        "password": hashear_password("ana123"),
-        "rol": "cliente",
-    },
-]
-
-
 def buscar_usuario(username: str):
-    for usuario in usuarios:
-        if usuario["username"] == username:
-            return usuario
-    return None
+    conexion = obtener_conexion()
+    try:
+        fila = conexion.execute(
+            """
+            SELECT id, username, nombre, password, rol
+            FROM usuarios
+            WHERE username = ?
+            """,
+            (username,),
+        ).fetchone()
+        return dict(fila) if fila else None
+    finally:
+        conexion.close()
 
 
 def crear_token(username: str) -> str:

@@ -1,7 +1,10 @@
+import sqlite3
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 
+from database import obtener_conexion
 import seguridad
 
 router = APIRouter(prefix="/auth", tags=["Autenticacion"])
@@ -36,14 +39,24 @@ def quien_soy(usuario: dict = Depends(seguridad.obtener_usuario_actual)):
 
 @router.post("/registro", status_code=201)
 def registrar_usuario(datos: UsuarioRegistro):
-    if seguridad.buscar_usuario(datos.username):
+    conexion = obtener_conexion()
+    try:
+        cursor = conexion.cursor()
+        cursor.execute(
+            """
+            INSERT INTO usuarios (username, nombre, password, rol)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                datos.username,
+                datos.nombre,
+                seguridad.hashear_password(datos.password),
+                "cliente",
+            ),
+        )
+        conexion.commit()
+        return {"mensaje": "Usuario registrado exitosamente", "username": datos.username}
+    except sqlite3.IntegrityError:
         raise HTTPException(status_code=400, detail="El nombre de usuario ya existe")
-
-    nuevo_usuario = {
-        "username": datos.username,
-        "nombre": datos.nombre,
-        "password": seguridad.hashear_password(datos.password),
-        "rol": "cliente",
-    }
-    seguridad.usuarios.append(nuevo_usuario)
-    return {"mensaje": "Usuario registrado exitosamente", "username": datos.username}
+    finally:
+        conexion.close()

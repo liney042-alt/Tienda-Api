@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from database import obtener_conexion
 import seguridad
 
 router = APIRouter(prefix="/productos", tags=["Productos"])
@@ -9,27 +10,56 @@ router = APIRouter(prefix="/productos", tags=["Productos"])
 class ProductoEntrada(BaseModel):
     nombre: str
     precio: float
-    categoria: str
+    categoria_id: int
 
 
-productos = [
-    {"id": 1, "nombre": "Teclado mecanico", "precio": 120000, "categoria": "Perifericos"},
-    {"id": 2, "nombre": "Mouse gamer", "precio": 85000, "categoria": "Perifericos"},
-    {"id": 3, "nombre": "Monitor 24", "precio": 650000, "categoria": "Pantallas"},
-]
+def categoria_existe(categoria_id: int) -> bool:
+    conexion = obtener_conexion()
+    try:
+        fila = conexion.execute(
+            "SELECT id FROM categorias WHERE id = ?",
+            (categoria_id,),
+        ).fetchone()
+        return fila is not None
+    finally:
+        conexion.close()
 
 
 @router.get("")
 def listar_productos():
-    return productos
+    conexion = obtener_conexion()
+    try:
+        filas = conexion.execute(
+            """
+            SELECT p.id, p.nombre, p.precio, p.categoria_id, c.nombre AS categoria
+            FROM productos p
+            JOIN categorias c ON c.id = p.categoria_id
+            ORDER BY p.id
+            """
+        ).fetchall()
+        return [dict(fila) for fila in filas]
+    finally:
+        conexion.close()
 
 
 @router.get("/{producto_id}")
 def obtener_producto(producto_id: int):
-    for producto in productos:
-        if producto["id"] == producto_id:
-            return producto
-    raise HTTPException(status_code=404, detail="Producto no encontrado")
+    conexion = obtener_conexion()
+    try:
+        fila = conexion.execute(
+            """
+            SELECT p.id, p.nombre, p.precio, p.categoria_id, c.nombre AS categoria
+            FROM productos p
+            JOIN categorias c ON c.id = p.categoria_id
+            WHERE p.id = ?
+            """,
+            (producto_id,),
+        ).fetchone()
+        if fila is None:
+            raise HTTPException(status_code=404, detail="Producto no encontrado")
+        return dict(fila)
+    finally:
+        conexion.close()
 
 
 @router.post("", status_code=201)
@@ -37,13 +67,33 @@ def crear_producto(
     datos: ProductoEntrada,
     usuario: dict = Depends(seguridad.obtener_usuario_actual),
 ):
-    nuevo_producto = {"id": len(productos) + 1, **datos.model_dump()}
-    productos.append(nuevo_producto)
-    return {
-        "mensaje": "Producto creado",
-        "producto": nuevo_producto,
-        "creado_por": usuario["username"],
-    }
+    if not categoria_existe(datos.categoria_id):
+        raise HTTPException(status_code=400, detail="La categoria indicada no existe")
+
+    conexion = obtener_conexion()
+    try:
+        cursor = conexion.cursor()
+        cursor.execute(
+            """
+            INSERT INTO productos (nombre, precio, categoria_id)
+            VALUES (?, ?, ?)
+            """,
+            (datos.nombre, datos.precio, datos.categoria_id),
+        )
+        conexion.commit()
+        nuevo = {
+            "id": cursor.lastrowid,
+            "nombre": datos.nombre,
+            "precio": datos.precio,
+            "categoria_id": datos.categoria_id,
+        }
+        return {
+            "mensaje": "Producto creado",
+            "producto": nuevo,
+            "creado_por": usuario["username"],
+        }
+    finally:
+        conexion.close()
 
 
 @router.put("/{producto_id}")
@@ -52,15 +102,30 @@ def actualizar_producto(
     datos: ProductoEntrada,
     usuario: dict = Depends(seguridad.obtener_usuario_actual),
 ):
-    for producto in productos:
-        if producto["id"] == producto_id:
-            producto.update(datos.model_dump())
-            return {
-                "mensaje": f"Producto {producto_id} actualizado",
-                "producto": producto,
-                "actualizado_por": usuario["username"],
-            }
-    raise HTTPException(status_code=404, detail="Producto no encontrado")
+    if not categoria_existe(datos.categoria_id):
+        raise HTTPException(status_code=400, detail="La categoria indicada no existe")
+
+    conexion = obtener_conexion()
+    try:
+        cursor = conexion.cursor()
+        cursor.execute(
+            """
+            UPDATE productos
+            SET nombre = ?, precio = ?, categoria_id = ?
+            WHERE id = ?
+            """,
+            (datos.nombre, datos.precio, datos.categoria_id, producto_id),
+        )
+        conexion.commit()
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Producto no encontrado")
+
+        return {
+            "mensaje": f"Producto {producto_id} actualizado",
+            "actualizado_por": usuario["username"],
+        }
+    finally:
+        conexion.close()
 
 
 @router.delete("/{producto_id}")
@@ -68,11 +133,17 @@ def eliminar_producto(
     producto_id: int,
     admin: dict = Depends(seguridad.requerir_admin),
 ):
-    for indice, producto in enumerate(productos):
-        if producto["id"] == producto_id:
-            productos.pop(indice)
-            return {
-                "mensaje": f"Producto {producto_id} eliminado",
-                "eliminado_por": admin["username"],
-            }
-    raise HTTPException(status_code=404, detail="Producto no encontrado")
+    conexion = obtener_conexion()
+    try:
+        cursor = conexion.cursor()
+        cursor.execute("DELETE FROM productos WHERE id = ?", (producto_id,))
+        conexion.commit()
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Producto no encontrado")
+
+        return {
+            "mensaje": f"Producto {producto_id} eliminado",
+            "eliminado_por": admin["username"],
+        }
+    finally:
+        conexion.close()
